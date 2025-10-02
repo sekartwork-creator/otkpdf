@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image to PDF</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body style="text-align:center;font-family:sans-serif;padding:20px;">
+  <h2>📷 แปลงรูปเป็น PDF (Offline)</h2>
+  <input type="file" id="images" accept="image/*" multiple>
+  <br><br>
+  <button onclick="makePDF()">แปลงเป็น PDF</button>
+  <br><br>
+  <a id="download" style="display:none;">📥 ดาวน์โหลด PDF</a>
+
+  <script>
+    async function makePDF() {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF();
+      const files = document.getElementById("images").files;
+
+      if (files.length === 0) {
+        alert("กรุณาเลือกรูปก่อนค่ะ");
+        return;
+      }
+
+      for (let i = 0; i < files.length; i++) {
+        const imgData = await toBase64(files[i]);
+        const img = new Image();
+        img.src = imgData;
+        await new Promise(res => img.onload = res);
+
+        let width = pdf.internal.pageSize.getWidth();
+        let height = (img.height * width) / img.width;
+
+        if (i > 0) pdf.addPage();
+        pdf.addImage(img, "JPEG", 0, 0, width, height);
+      }
+
+      const pdfBlob = pdf.output("blob");
+      const url = URL.createObjectURL(pdfBlob);
+
+      const a = document.getElementById("download");
+      a.href = url;
+      a.download = "images.pdf";
+      a.style.display = "inline-block";
+      a.innerText = "📥 ดาวน์โหลด PDF";
+    }
+
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+    }
+  </script>
+</body>
+</html>
