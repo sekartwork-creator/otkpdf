@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Image to PDF</title>
+  <title>สแกนเอกสารเป็น PDF</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    /* ===== Body (จัดกลางทั้งแนวตั้ง/แนวนอน) ===== */
     body {
       margin: 0;
       padding: 20px;
@@ -14,44 +13,19 @@
       background-color: #fff;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-start;
       align-items: center;
       min-height: 100vh;
       box-sizing: border-box;
-    }
-
-    /* ===== โลโก้ + ชื่อบริษัท ===== */
-    .logo-container {
       text-align: center;
-      margin-bottom: 30px;
     }
 
-    .logo-container img {
-      width: 120px; /* ปรับขนาดโลโก้ */
-      height: auto;
-      margin-bottom: 10px;
-    }
-
-    .logo-container h3 {
-      color: #06C755;
-      font-weight: 700;
-      margin: 0;
-      font-size: 1.5rem;
-    }
-    
-    /* ===== Header ===== */
     h1 {
       color: #06C755;
       font-weight: 700;
       margin-bottom: 20px;
-      text-align: center;
     }
 
-    h3 {
-      color: #06C755;
-    }
-
-    /* ===== File Input ===== */
     input[type=file] {
       width: 100%;
       max-width: 400px;
@@ -62,16 +36,14 @@
       font-size: 1rem;
       background: #f9f9f9;          
       outline: none;
-      box-sizing: border-box;
       cursor: pointer;
     }
 
     input[type=file]:focus {
-      border: 1.5px solid #06C755;  
+      border: 1.5px solid #06C755;
       background: #fff;
     }
 
-    /* ===== Button ===== */
     .btn {
       width: 100%;
       max-width: 400px;
@@ -90,20 +62,27 @@
       background-color: #049645;
     }
 
-    /* ===== Result ===== */
     #result {
-      text-align: center;
-      font-size: 1.2rem;
-      font-weight: 700;
       margin-top: 20px;
+      font-size: 1.2rem;
     }
 
-    .success { color: green; }
-    .error { color: red; }
+    #preview {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 15px;
+    }
 
-    /* ===== Footer ===== */
+    #preview img {
+      width: 100px;
+      margin: 5px;
+      border: 2px solid #06C755;
+      border-radius: 5px;
+    }
+
     footer {
-      margin-top: 40px;
+      margin-top: 30px;
       font-size: 0.85rem;
       color: #666;
       text-align: center;
@@ -121,16 +100,12 @@
   </style>
 </head>
 <body>
-  <div class="logo-container">
-    <img src="https://cdn-icons-png.flaticon.com/512/281/281769.png" alt="Logo">
-    <h3>Image to PDF Converter</h3>
-  </div>
+  <h1>📷 สแกนเอกสาร & แปลงเป็น PDF</h1>
 
-  <h1>📷 แปลงรูปภาพเป็น PDF</h1>
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple>
+  <button class="btn" id="makePdf">สร้าง PDF</button>
 
-  <input type="file" id="images" accept="image/*" multiple>
-  <button class="btn" onclick="makePDF()">แปลงเป็น PDF</button>
-
+  <div id="preview"></div>
   <div id="result"></div>
 
   <footer>
@@ -139,45 +114,54 @@
   </footer>
 
   <script>
-    async function makePDF() {
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF();
-      const files = document.getElementById("images").files;
+    const { jsPDF } = window.jspdf;
+    let images = [];
 
-      if (files.length === 0) {
-        document.getElementById("result").innerHTML =
-          "<span class='error'>⚠ กรุณาเลือกรูปก่อนค่ะ</span>";
+    const cameraInput = document.getElementById('cameraInput');
+    const preview = document.getElementById('preview');
+
+    cameraInput.addEventListener('change', function(e) {
+      images = [];
+      preview.innerHTML = "";
+      const files = e.target.files;
+      for (let i = 0; i < files.length; i++) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          images.push(evt.target.result);
+          const imgEl = document.createElement('img');
+          imgEl.src = evt.target.result;
+          preview.appendChild(imgEl);
+        };
+        reader.readAsDataURL(files[i]);
+      }
+    });
+
+    document.getElementById('makePdf').addEventListener('click', function() {
+      if (images.length === 0) {
+        alert("กรุณาเลือกรูปก่อนค่ะ");
         return;
       }
+      const pdf = new jsPDF();
+      let addPage = false;
 
-      for (let i = 0; i < files.length; i++) {
-        const imgData = await toBase64(files[i]);
+      images.forEach((imgData, index) => {
         const img = new Image();
         img.src = imgData;
-        await new Promise(res => img.onload = res);
+        img.onload = function() {
+          let pdfWidth = pdf.internal.pageSize.getWidth();
+          let pdfHeight = (img.height * pdfWidth) / img.width;
 
-        let width = pdf.internal.pageSize.getWidth();
-        let height = (img.height * width) / img.width;
+          if (addPage) pdf.addPage();
+          pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
 
-        if (i > 0) pdf.addPage();
-        pdf.addImage(img, "JPEG", 0, 0, width, height);
-      }
+          addPage = true;
 
-      const pdfBlob = pdf.output("blob");
-      const url = URL.createObjectURL(pdfBlob);
-
-      document.getElementById("result").innerHTML =
-        "<a href='" + url + "' download='images.pdf' class='success'>📥 ดาวน์โหลด PDF</a>";
-    }
-
-    function toBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
+          if (index === images.length - 1) {
+            pdf.save("document.pdf");
+          }
+        };
       });
-    }
+    });
   </script>
 </body>
 </html>
