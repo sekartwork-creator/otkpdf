@@ -6,85 +6,145 @@
 <title>Image to PDF</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-    body {
-      margin: 0;
-      padding: 20px;
-      font-family: 'Kanit', sans-serif;
-      background-color: #fff;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      box-sizing: border-box;
-    }
+  /* ===== Body ===== */
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: 'Kanit', sans-serif;
+    background: linear-gradient(135deg, #f0fff0, #e6f7ff);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+  }
 
-    .logo-container {
-      text-align: center;
-      margin-bottom: 30px;
-    }
+  /* ===== Logo ===== */
+  .logo-container {
+    text-align: center;
+    margin-bottom: 30px;
+    animation: fadeIn 1s ease forwards;
+  }
 
-    .logo-container img {
-      width: 120px;
-      height: auto;
-      margin-bottom: 10px;
-    }
+  .logo-container img {
+    width: 120px;
+    height: auto;
+    margin-bottom: 10px;
+  }
 
-    .logo-container h3 {
-      color: #06C755;
-      font-weight: 700;
-      margin: 0;
-      font-size: 1.5rem;
-    }
+  .logo-container h3 {
+    color: #06C755;
+    font-weight: 700;
+    margin: 0;
+    font-size: 1.6rem;
+  }
 
-    h1 { color: #06C755; font-weight: 700; margin-bottom: 20px; text-align:center; }
+  /* ===== Title ===== */
+  h1 {
+    color: #06C755;
+    font-weight: 700;
+    margin-bottom: 20px;
+    text-align:center;
+    font-size: 1.8rem;
+  }
 
-    input[type=file], .dropdown-btn, textarea {
-      width: 100%;
-      max-width: 400px;
-      padding: 15px;
-      margin-bottom: 15px;
-      border: 1.5px solid #ccc;
-      border-radius: 10px;
-      font-size: 1rem;
-      background: #f9f9f9;
-      outline: none;
-      box-sizing: border-box;
-      cursor: pointer;
-    }
+  /* ===== Inputs ===== */
+  input[type=file], textarea, .dropdown-btn {
+    width: 100%;
+    max-width: 400px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1.5px solid #ccc;
+    border-radius: 12px;
+    font-size: 1rem;
+    background: #fff;
+    outline: none;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: 0.3s;
+  }
 
-    input[type=file]:focus, textarea:focus, .dropdown-btn:focus {
-      border: 1.5px solid #06C755;
-      background: #fff;
-    }
+  input[type=file]:focus, textarea:focus, .dropdown-btn:focus {
+    border-color: #06C755;
+    box-shadow: 0 0 8px rgba(6,199,85,0.3);
+  }
 
-    textarea::placeholder { color:#aaa; font-style: italic; }
-    textarea { resize: none; height: 80px; }
+  textarea::placeholder { color:#aaa; font-style: italic; }
+  textarea { resize: none; height: 80px; }
 
-    .btn {
-      width: 100%;
-      max-width: 400px;
-      padding: 15px;
-      border: none;
-      border-radius: 10px;
-      background-color: #06C755;
-      color: #fff;
-      font-size: 1.2rem;
-      font-weight: 700;
-      cursor: pointer;
-      margin-top: 10px;
-      text-align: center;
-    }
+  /* ===== Buttons ===== */
+  .btn {
+    width: 100%;
+    max-width: 400px;
+    padding: 15px;
+    border: none;
+    border-radius: 12px;
+    background-color: #06C755;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 10px;
+    text-align: center;
+    transition: 0.3s;
+  }
 
-    .btn:hover { background-color: #049645; }
+  .btn:hover {
+    background-color: #049645;
+    transform: translateY(-2px);
+  }
 
-    #result { text-align:center; font-size:1.2rem; font-weight:700; margin-top:10px; }
-    .success { color: green; }
-    .error { color: red; }
+  /* ===== Result ===== */
+  #result {
+    text-align:center;
+    font-size:1.2rem;
+    font-weight:700;
+    margin-top:15px;
+  }
+  .success { color: green; }
+  .error { color: red; }
 
-    footer { margin-top: 30px; font-size: 0.85rem; color: #666; text-align:center; }
-    footer a { color: #3768fa; text-decoration: none; margin: 0 5px; }
-    footer a:hover { text-decoration: underline; }
+  /* ===== Share Menu ===== */
+  .share-menu {
+    display: flex;
+    gap: 15px;
+    margin-top: 15px;
+    justify-content: center;
+  }
+
+  .share-menu a {
+    text-decoration: none;
+    font-size: 1.4rem;
+    color: #fff;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    transition: 0.3s;
+  }
+
+  .share-facebook { background:#3b5998; }
+  .share-twitter { background:#1da1f2; }
+  .share-line { background:#00c300; }
+
+  .share-menu a:hover { opacity:0.8; transform: scale(1.1); }
+
+  /* ===== Footer ===== */
+  footer {
+    margin-top: 30px;
+    font-size: 0.85rem;
+    color: #666;
+    text-align:center;
+  }
+  footer a { color: #3768fa; text-decoration: none; margin: 0 5px; }
+  footer a:hover { text-decoration: underline; }
+
+  @keyframes fadeIn {
+    0% { opacity:0; transform: translateY(-10px); }
+    100% { opacity:1; transform: translateY(0); }
+  }
 </style>
 </head>
 <body>
@@ -96,18 +156,21 @@
 
 <h1>📷 แปลงรูปภาพเป็น PDF</h1>
 
-<!-- เลือกไฟล์จากมือถือ/คอม -->
 <input type="file" id="images" accept="image/*" multiple>
 
-<!-- ปุ่ม Scanner เป็น <p> -->
 <p id="scannerBtn" class="btn" style="cursor:pointer;">📷 Scanner</p>
-<!-- input file ซ่อนสำหรับ Scanner -->
 <input type="file" id="cameraScan" accept="image/*" capture="environment" style="display:none;">
 
-<!-- ปุ่มแปลงเป็น PDF -->
 <button class="btn" onclick="makePDF()">แปลงเป็น PDF</button>
 
 <div id="result"></div>
+
+<!-- Share Menu -->
+<div class="share-menu" id="shareMenu" style="display:none;">
+  <a href="#" target="_blank" class="share-facebook" id="shareFb" title="แชร์ Facebook">F</a>
+  <a href="#" target="_blank" class="share-twitter" id="shareTw" title="แชร์ Twitter">T</a>
+  <a href="#" target="_blank" class="share-line" id="shareLine" title="แชร์ Line">L</a>
+</div>
 
 <footer>
   © 2025 My Project |
@@ -118,17 +181,14 @@
 const { jsPDF } = window.jspdf;
 let imageFiles = [];
 
-// เลือกไฟล์จากมือถือ/คอม
 document.getElementById('images').addEventListener('change', function(e) {
   imageFiles = Array.from(e.target.files);
 });
 
-// คลิก <p> Scanner → เปิดกล้อง
 document.getElementById('scannerBtn').addEventListener('click', function() {
   document.getElementById('cameraScan').click();
 });
 
-// เมื่อถ่ายรูปเสร็จ เก็บไฟล์
 document.getElementById('cameraScan').addEventListener('change', function(e) {
   imageFiles = Array.from(e.target.files);
 });
@@ -137,6 +197,7 @@ async function makePDF() {
   if (imageFiles.length === 0) {
     document.getElementById('result').innerHTML =
       "<span class='error'>⚠ กรุณาเลือกรูปก่อนค่ะ</span>";
+    document.getElementById('shareMenu').style.display = 'none';
     return;
   }
 
@@ -159,6 +220,12 @@ async function makePDF() {
   const url = URL.createObjectURL(pdfBlob);
   document.getElementById('result').innerHTML =
     "<a href='" + url + "' download='images.pdf' class='success'>📥 ดาวน์โหลด PDF</a>";
+
+  // แสดงเมนูแชร์
+  document.getElementById('shareMenu').style.display = 'flex';
+  document.getElementById('shareFb').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+  document.getElementById('shareTw').href = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent('แปลงรูปเป็น PDF!')}`;
+  document.getElementById('shareLine').href = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}`;
 }
 
 function toBase64(file){
