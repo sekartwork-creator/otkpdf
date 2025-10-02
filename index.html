@@ -5,14 +5,138 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image to PDF</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    /* ===== Body (จัดกลางทั้งแนวตั้ง/แนวนอน) ===== */
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Kanit', sans-serif;
+      background-color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    /* ===== โลโก้ + ชื่อบริษัท ===== */
+    .logo-container {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo-container img {
+      width: 120px; /* ปรับขนาดโลโก้ */
+      height: auto;
+      margin-bottom: 10px;
+    }
+
+    .logo-container h3 {
+      color: #06C755;
+      font-weight: 700;
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    
+    /* ===== Header ===== */
+    h1 {
+      color: #06C755;
+      font-weight: 700;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    h3 {
+      color: #06C755;
+    }
+
+    /* ===== File Input ===== */
+    input[type=file] {
+      width: 100%;
+      max-width: 400px;
+      padding: 15px;
+      margin-bottom: 15px;
+      border: 1.5px solid #ccc;     
+      border-radius: 10px;          
+      font-size: 1rem;
+      background: #f9f9f9;          
+      outline: none;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+
+    input[type=file]:focus {
+      border: 1.5px solid #06C755;  
+      background: #fff;
+    }
+
+    /* ===== Button ===== */
+    .btn {
+      width: 100%;
+      max-width: 400px;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      background-color: #06C755;
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .btn:hover {
+      background-color: #049645;
+    }
+
+    /* ===== Result ===== */
+    #result {
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-top: 20px;
+    }
+
+    .success { color: green; }
+    .error { color: red; }
+
+    /* ===== Footer ===== */
+    footer {
+      margin-top: 40px;
+      font-size: 0.85rem;
+      color: #666;
+      text-align: center;
+    }
+
+    footer a {
+      color: #3768fa;
+      text-decoration: none;
+      margin: 0 5px;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
-<body style="text-align:center;font-family:sans-serif;padding:20px;">
-  <h2>📷 แปลงรูปเป็น PDF (Offline)</h2>
+<body>
+  <div class="logo-container">
+    <img src="https://cdn-icons-png.flaticon.com/512/281/281769.png" alt="Logo">
+    <h3>Image to PDF Converter</h3>
+  </div>
+
+  <h1>📷 แปลงรูปภาพเป็น PDF</h1>
+
   <input type="file" id="images" accept="image/*" multiple>
-  <br><br>
-  <button onclick="makePDF()">แปลงเป็น PDF</button>
-  <br><br>
-  <a id="download" style="display:none;">📥 ดาวน์โหลด PDF</a>
+  <button class="btn" onclick="makePDF()">แปลงเป็น PDF</button>
+
+  <div id="result"></div>
+
+  <footer>
+    © 2025 My Project |
+    <a href="https://github.com/sekartwork-creator" target="_blank">GitHub</a>
+  </footer>
 
   <script>
     async function makePDF() {
@@ -21,7 +145,8 @@
       const files = document.getElementById("images").files;
 
       if (files.length === 0) {
-        alert("กรุณาเลือกรูปก่อนค่ะ");
+        document.getElementById("result").innerHTML =
+          "<span class='error'>⚠ กรุณาเลือกรูปก่อนค่ะ</span>";
         return;
       }
 
@@ -41,11 +166,8 @@
       const pdfBlob = pdf.output("blob");
       const url = URL.createObjectURL(pdfBlob);
 
-      const a = document.getElementById("download");
-      a.href = url;
-      a.download = "images.pdf";
-      a.style.display = "inline-block";
-      a.innerText = "📥 ดาวน์โหลด PDF";
+      document.getElementById("result").innerHTML =
+        "<a href='" + url + "' download='images.pdf' class='success'>📥 ดาวน์โหลด PDF</a>";
     }
 
     function toBase64(file) {
