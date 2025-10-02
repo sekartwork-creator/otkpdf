@@ -6,7 +6,6 @@
 <title>Image to PDF</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-    /* ===== Body (จัดกลาง) ===== */
     body {
       margin: 0;
       padding: 20px;
@@ -39,7 +38,6 @@
     }
 
     h1 { color: #06C755; font-weight: 700; margin-bottom: 20px; text-align:center; }
-    h3 { color: #06C755; }
 
     input[type=file], .dropdown-btn, textarea {
       width: 100%;
@@ -75,6 +73,7 @@
       font-weight: 700;
       cursor: pointer;
       margin-top: 10px;
+      text-align: center;
     }
 
     .btn:hover { background-color: #049645; }
@@ -97,11 +96,13 @@
 
 <h1>📷 แปลงรูปภาพเป็น PDF</h1>
 
-<!-- ปุ่มเลือกไฟล์ -->
+<!-- เลือกไฟล์จากมือถือ/คอม -->
 <input type="file" id="images" accept="image/*" multiple>
 
-<!-- ปุ่มเปิดกล้องสแกน -->
-<input type="file" id="cameraScan" accept="image/*" capture="environment">
+<!-- ปุ่ม Scanner เป็น <p> -->
+<p id="scannerBtn" class="btn" style="cursor:pointer;">📷 Scanner</p>
+<!-- input file ซ่อนสำหรับ Scanner -->
+<input type="file" id="cameraScan" accept="image/*" capture="environment" style="display:none;">
 
 <!-- ปุ่มแปลงเป็น PDF -->
 <button class="btn" onclick="makePDF()">แปลงเป็น PDF</button>
@@ -122,7 +123,12 @@ document.getElementById('images').addEventListener('change', function(e) {
   imageFiles = Array.from(e.target.files);
 });
 
-// ใช้กล้องถ่ายสแกน
+// คลิก <p> Scanner → เปิดกล้อง
+document.getElementById('scannerBtn').addEventListener('click', function() {
+  document.getElementById('cameraScan').click();
+});
+
+// เมื่อถ่ายรูปเสร็จ เก็บไฟล์
 document.getElementById('cameraScan').addEventListener('change', function(e) {
   imageFiles = Array.from(e.target.files);
 });
