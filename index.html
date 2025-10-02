@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>สแกนเอกสารเป็น PDF</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image to PDF</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+    /* ===== Body (จัดกลาง) ===== */
     body {
       margin: 0;
       padding: 20px;
@@ -13,36 +14,54 @@
       background-color: #fff;
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
+      justify-content: center;
       align-items: center;
       min-height: 100vh;
       box-sizing: border-box;
-      text-align: center;
     }
 
-    h1 {
+    .logo-container {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .logo-container img {
+      width: 120px;
+      height: auto;
+      margin-bottom: 10px;
+    }
+
+    .logo-container h3 {
       color: #06C755;
       font-weight: 700;
-      margin-bottom: 20px;
+      margin: 0;
+      font-size: 1.5rem;
     }
 
-    input[type=file] {
+    h1 { color: #06C755; font-weight: 700; margin-bottom: 20px; text-align:center; }
+    h3 { color: #06C755; }
+
+    input[type=file], .dropdown-btn, textarea {
       width: 100%;
       max-width: 400px;
       padding: 15px;
       margin-bottom: 15px;
-      border: 1.5px solid #ccc;     
-      border-radius: 10px;          
+      border: 1.5px solid #ccc;
+      border-radius: 10px;
       font-size: 1rem;
-      background: #f9f9f9;          
+      background: #f9f9f9;
       outline: none;
+      box-sizing: border-box;
       cursor: pointer;
     }
 
-    input[type=file]:focus {
+    input[type=file]:focus, textarea:focus, .dropdown-btn:focus {
       border: 1.5px solid #06C755;
       background: #fff;
     }
+
+    textarea::placeholder { color:#aaa; font-style: italic; }
+    textarea { resize: none; height: 80px; }
 
     .btn {
       width: 100%;
@@ -58,110 +77,93 @@
       margin-top: 10px;
     }
 
-    .btn:hover {
-      background-color: #049645;
-    }
+    .btn:hover { background-color: #049645; }
 
-    #result {
-      margin-top: 20px;
-      font-size: 1.2rem;
-    }
+    #result { text-align:center; font-size:1.2rem; font-weight:700; margin-top:10px; }
+    .success { color: green; }
+    .error { color: red; }
 
-    #preview {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-top: 15px;
-    }
-
-    #preview img {
-      width: 100px;
-      margin: 5px;
-      border: 2px solid #06C755;
-      border-radius: 5px;
-    }
-
-    footer {
-      margin-top: 30px;
-      font-size: 0.85rem;
-      color: #666;
-      text-align: center;
-    }
-
-    footer a {
-      color: #3768fa;
-      text-decoration: none;
-      margin: 0 5px;
-    }
-
-    footer a:hover {
-      text-decoration: underline;
-    }
-  </style>
+    footer { margin-top: 30px; font-size: 0.85rem; color: #666; text-align:center; }
+    footer a { color: #3768fa; text-decoration: none; margin: 0 5px; }
+    footer a:hover { text-decoration: underline; }
+</style>
 </head>
 <body>
-  <h1>📷 สแกนเอกสาร & แปลงเป็น PDF</h1>
 
-  <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple>
-  <button class="btn" id="makePdf">สร้าง PDF</button>
+<div class="logo-container">
+  <img src="https://cdn-icons-png.flaticon.com/512/281/281769.png" alt="Logo">
+  <h3>Image to PDF Converter</h3>
+</div>
 
-  <div id="preview"></div>
-  <div id="result"></div>
+<h1>📷 แปลงรูปภาพเป็น PDF</h1>
 
-  <footer>
-    © 2025 My Project |
-    <a href="https://github.com/sekartwork-creator" target="_blank">GitHub</a>
-  </footer>
+<!-- ปุ่มเลือกไฟล์ -->
+<input type="file" id="images" accept="image/*" multiple>
 
-  <script>
-    const { jsPDF } = window.jspdf;
-    let images = [];
+<!-- ปุ่มเปิดกล้องสแกน -->
+<input type="file" id="cameraScan" accept="image/*" capture="environment">
 
-    const cameraInput = document.getElementById('cameraInput');
-    const preview = document.getElementById('preview');
+<!-- ปุ่มแปลงเป็น PDF -->
+<button class="btn" onclick="makePDF()">แปลงเป็น PDF</button>
 
-    cameraInput.addEventListener('change', function(e) {
-      images = [];
-      preview.innerHTML = "";
-      const files = e.target.files;
-      for (let i = 0; i < files.length; i++) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          images.push(evt.target.result);
-          const imgEl = document.createElement('img');
-          imgEl.src = evt.target.result;
-          preview.appendChild(imgEl);
-        };
-        reader.readAsDataURL(files[i]);
-      }
-    });
+<div id="result"></div>
 
-    document.getElementById('makePdf').addEventListener('click', function() {
-      if (images.length === 0) {
-        alert("กรุณาเลือกรูปก่อนค่ะ");
-        return;
-      }
-      const pdf = new jsPDF();
-      let addPage = false;
+<footer>
+  © 2025 My Project |
+  <a href="https://github.com/sekartwork-creator" target="_blank">GitHub</a>
+</footer>
 
-      images.forEach((imgData, index) => {
-        const img = new Image();
-        img.src = imgData;
-        img.onload = function() {
-          let pdfWidth = pdf.internal.pageSize.getWidth();
-          let pdfHeight = (img.height * pdfWidth) / img.width;
+<script>
+const { jsPDF } = window.jspdf;
+let imageFiles = [];
 
-          if (addPage) pdf.addPage();
-          pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+// เลือกไฟล์จากมือถือ/คอม
+document.getElementById('images').addEventListener('change', function(e) {
+  imageFiles = Array.from(e.target.files);
+});
 
-          addPage = true;
+// ใช้กล้องถ่ายสแกน
+document.getElementById('cameraScan').addEventListener('change', function(e) {
+  imageFiles = Array.from(e.target.files);
+});
 
-          if (index === images.length - 1) {
-            pdf.save("document.pdf");
-          }
-        };
-      });
-    });
-  </script>
+async function makePDF() {
+  if (imageFiles.length === 0) {
+    document.getElementById('result').innerHTML =
+      "<span class='error'>⚠ กรุณาเลือกรูปก่อนค่ะ</span>";
+    return;
+  }
+
+  const pdf = new jsPDF();
+
+  for (let i=0; i<imageFiles.length; i++){
+    const imgData = await toBase64(imageFiles[i]);
+    const img = new Image();
+    img.src = imgData;
+    await new Promise(res => img.onload = res);
+
+    let width = pdf.internal.pageSize.getWidth();
+    let height = (img.height * width) / img.width;
+
+    if(i>0) pdf.addPage();
+    pdf.addImage(img, "JPEG", 0, 0, width, height);
+  }
+
+  const pdfBlob = pdf.output("blob");
+  const url = URL.createObjectURL(pdfBlob);
+  document.getElementById('result').innerHTML =
+    "<a href='" + url + "' download='images.pdf' class='success'>📥 ดาวน์โหลด PDF</a>";
+}
+
+function toBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = ()=>resolve(reader.result);
+    reader.onerror = error=>reject(error);
+  });
+}
+</script>
+
 </body>
 </html>
