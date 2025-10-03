@@ -7,12 +7,12 @@
   "theme_color": "#e4252a",
   "icons": [
     {
-      "src": "1922.png",
+      "src": "https://raw.githubusercontent.com/sekartwork-creator/otkpdf/main/1922.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "5121.png",
+      "src": "https://raw.githubusercontent.com/sekartwork-creator/otkpdf/main/5121.png",
       "sizes": "512x512",
       "type": "image/png"
     }
