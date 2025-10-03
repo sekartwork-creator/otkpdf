@@ -1,246 +1,143 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Image to PDF</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
-<style>
-  body {
-    margin: 0;
-    padding: 20px;
-    font-family: 'Kanit', sans-serif;
-    background: linear-gradient(135deg, #f0fff0, #e6f7ff);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-    box-sizing: border-box;
-    position: relative;
-  }
-  .logo-container { text-align: center; margin-bottom: 20px; }
-  .logo-container img { width: 100px; height: auto; margin-bottom: 10px; }
-  .logo-container h3 { color:#06C755; font-weight:700; margin:0; font-size:1.5rem; }
-  h1 { color:#06C755; font-weight:700; margin-bottom:20px; text-align:center; }
-
-  input[type=file] {
-    width: 100%; max-width:400px; padding:15px; margin-bottom:15px;
-    border:1.5px solid #ccc; border-radius:12px; font-size:1rem; background:#fff;
-    outline:none; cursor:pointer; transition:.3s;
-  }
-  input[type=file]:focus { border-color:#06C755; box-shadow:0 0 8px rgba(6,199,85,.3); }
-
-  .btn {
-    width:100%; max-width:400px; padding:15px; border:none; border-radius:12px;
-    background-color:#06C755; color:#fff; font-size:1.2rem; font-weight:700;
-    cursor:pointer; margin-top:10px; text-align:center; transition:.3s;
-  }
-  .btn:hover { background-color:#049645; transform:translateY(-2px); }
-
-  #result { text-align:center; font-size:1.2rem; font-weight:700; margin-top:15px; }
-  .success { color: green; }
-  .error { color: red; }
-
-  footer { margin-top:30px; font-size:0.85rem; color:#666; text-align:center; }
-  footer a { color:#3768fa; text-decoration:none; margin:0 5px; }
-  footer a:hover { text-decoration:underline; }
-
-  /* Floating Buttons */
-  .floating-btn {
-    position: fixed; bottom:20px; right:20px; width:55px; height:55px;
-    border-radius:50%; background-color:#06C755; color:#fff; display:flex;
-    justify-content:center; align-items:center; font-size:1.6rem; cursor:pointer;
-    box-shadow:0 5px 15px rgba(0,0,0,0.3); transition:.3s; z-index:1000;
-  }
-  .floating-btn:hover { background-color:#049645; transform:translateY(-3px); }
-
-  /* Share submenu */
-  .share-submenu {
-    position: fixed; bottom:85px; right:20px; display:flex; flex-direction:column;
-    gap:12px; display:none;
-  }
-  .share-submenu a {
-    width:45px; height:45px; border-radius:50%; color:#fff; display:flex;
-    justify-content:center; align-items:center; text-decoration:none; font-weight:bold;
-    font-size:1.2rem; box-shadow:0 3px 10px rgba(0,0,0,.2); transition:.3s;
-  }
-  .share-facebook { background:#3b5998; }
-  .share-twitter { background:#1da1f2; }
-  .share-line { background:#00c300; }
-  .share-submenu a:hover { opacity:0.85; transform:scale(1.1); }
-</style>
+  <meta charset="UTF-8">
+  <title>Auto Crop Camera + Save PDF</title>
+  <!-- OpenCV -->
+  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { 
+      font-family: 'Sarabun', sans-serif; 
+      text-align: center; 
+      background: #f9f9f9; 
+      padding: 20px;
+    }
+    canvas { 
+      margin-top: 15px; 
+      border: 2px solid #555; 
+      max-width: 100%; 
+      border-radius: 10px;
+    }
+    input, button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #aaa;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
 </head>
 <body>
+  <h2>📸 ถ่ายรูปแล้วครอปอัตโนมัติ + บันทึก PDF</h2>
+  
+  <!-- กล้อง -->
+  <input type="file" accept="image/*" capture="environment" id="cameraInput">
+  <p>หรือ</p>
+  <!-- อัปโหลด -->
+  <input type="file" accept="image/*" id="uploadInput">
+  
+  <br><br>
+  <canvas id="canvas"></canvas>
+  <br>
+  <button id="savePDF">บันทึกเป็น PDF</button>
 
-<div class="logo-container">
-  <img src="https://cdn-icons-png.flaticon.com/512/281/281769.png" alt="Logo">
-  <h3>Image to PDF Converter</h3>
-</div>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
 
-<h1>📷 แปลงรูปภาพเป็น PDF</h1>
+    function processImage(file, doCrop) {
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
 
-<!-- เลือกไฟล์ -->
-<input type="file" id="images" accept="image/*" multiple>
-<button class="btn" onclick="makePDF()">แปลงเป็น PDF</button>
+        if (!doCrop) return; // ❌ ถ้าไม่ครอปก็หยุดแค่นี้
 
-<div id="result"></div>
+        cv['onRuntimeInitialized'] = () => {
+          let src = cv.imread(canvas);
+          let gray = new cv.Mat();
+          let edges = new cv.Mat();
 
-<footer>
-  © 2025 My Project | <a href="https://github.com/sekartwork-creator" target="_blank">GitHub</a>
-</footer>
+          // แปลงเป็นขาวดำ + เบลอ + หาเส้นขอบ
+          cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+          cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+          cv.Canny(gray, edges, 50, 150);
 
-<!-- Scanner Floating Button -->
-<div id="scannerBtn" class="floating-btn" title="Scanner">📷</div>
-<input type="file" id="cameraScan" accept="image/*" capture="environment" style="display:none;">
+          // หา Contours
+          let contours = new cv.MatVector();
+          let hierarchy = new cv.Mat();
+          cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-<!-- Share Submenu -->
-<div class="share-submenu" id="shareMenu">
-  <a href="#" target="_blank" class="share-facebook" id="shareFb" title="Facebook">F</a>
-  <a href="#" target="_blank" class="share-twitter" id="shareTw" title="Twitter">T</a>
-  <a href="#" target="_blank" class="share-line" id="shareLine" title="Line">L</a>
-</div>
-
-<!-- hidden canvas สำหรับ opencv -->
-<canvas id="hiddenCanvas" style="display:none;"></canvas>
-
-<script>
-const { jsPDF } = window.jspdf;
-let imageFiles = [];
-
-// เลือกไฟล์
-document.getElementById('images').addEventListener('change', e => {
-  imageFiles = Array.from(e.target.files);
-});
-
-// Scanner
-document.getElementById('scannerBtn').addEventListener('click', () => {
-  document.getElementById('cameraScan').click();
-});
-document.getElementById('cameraScan').addEventListener('change', e => {
-  imageFiles = Array.from(e.target.files);
-});
-
-// Auto crop ด้วย OpenCV.js
-async function autoCrop(file) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = function () {
-      let src = cv.imread(img);
-      let gray = new cv.Mat();
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-      cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-
-      let edges = new cv.Mat();
-      cv.Canny(gray, edges, 75, 200);
-
-      let contours = new cv.MatVector();
-      let hierarchy = new cv.Mat();
-      cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-      let maxArea = 0, maxContour = null;
-      for (let i = 0; i < contours.size(); i++) {
-        let cnt = contours.get(i);
-        let area = cv.contourArea(cnt);
-        if (area > maxArea) {
-          maxArea = area;
-          maxContour = cnt;
-        }
-      }
-
-      if (maxContour) {
-        let peri = cv.arcLength(maxContour, true);
-        let approx = new cv.Mat();
-        cv.approxPolyDP(maxContour, approx, 0.02 * peri, true);
-
-        if (approx.rows === 4) {
-          let pts = [];
-          for (let i = 0; i < 4; i++) {
-            pts.push({x: approx.intAt(i, 0), y: approx.intAt(i, 1)});
+          // หา contour ใหญ่สุด
+          let biggest = null;
+          let maxArea = 0;
+          for (let i = 0; i < contours.size(); i++) {
+            let cnt = contours.get(i);
+            let area = cv.contourArea(cnt);
+            if (area > maxArea) {
+              maxArea = area;
+              biggest = cnt;
+            }
           }
-          pts.sort((a, b) => a.y - b.y);
-          let top = pts.slice(0, 2).sort((a, b) => a.x - b.x);
-          let bottom = pts.slice(2, 4).sort((a, b) => a.x - b.x);
-          let ordered = [top[0], top[1], bottom[1], bottom[0]];
 
-          let w = src.cols, h = src.rows;
-          let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-            ordered[0].x, ordered[0].y,
-            ordered[1].x, ordered[1].y,
-            ordered[2].x, ordered[2].y,
-            ordered[3].x, ordered[3].y
-          ]);
-          let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0,0, w,0, w,h, 0,h]);
-          let M = cv.getPerspectiveTransform(srcTri, dstTri);
-          let dst = new cv.Mat();
-          cv.warpPerspective(src, dst, M, new cv.Size(w,h));
+          if (biggest) {
+            let rect = cv.boundingRect(biggest);
+            let crop = src.roi(rect);
+            cv.imshow(canvas, crop);
+            crop.delete();
+          }
 
-          cv.imshow('hiddenCanvas', dst);
-          let croppedImg = document.getElementById('hiddenCanvas').toDataURL("image/jpeg");
-          resolve(croppedImg);
+          // cleanup
+          src.delete(); gray.delete(); edges.delete();
+          contours.delete(); hierarchy.delete();
+        };
+      };
+      img.src = URL.createObjectURL(file);
+    }
 
-          dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
-        }
-        approx.delete();
+    // กล้อง → ครอป
+    document.getElementById('cameraInput').addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        processImage(e.target.files[0], true); // ✅ ครอป
       }
+    });
 
-      src.delete(); gray.delete(); edges.delete(); contours.delete(); hierarchy.delete();
-    };
-    img.src = URL.createObjectURL(file);
-  });
-}
+    // อัปโหลด → ไม่ครอป
+    document.getElementById('uploadInput').addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        processImage(e.target.files[0], false); // ❌ ไม่ครอป
+      }
+    });
 
-// Upload PDF to Google Drive
-async function uploadPDFToDrive(pdfBlob) {
-  const reader = new FileReader();
-  return new Promise((resolve, reject) => {
-    reader.onload = async function() {
-      try {
-        const base64data = reader.result;
-        const response = await fetch('https://script.google.com/macros/s/AKfycbwIe0tbe3NPc0CTy162Zr1vEQc8ZKNYFlenQn7ryNsQgLoSYZEzQ3nnBYRV0ln_ZWNkrA/exec', {
-          method: 'POST',
-          body: base64data
-        });
-        const result = await response.json();
-        resolve(result.url);
-      } catch(err) { reject(err); }
-    };
-    reader.readAsDataURL(pdfBlob);
-  });
-}
+    // บันทึก PDF
+    document.getElementById('savePDF').addEventListener('click', () => {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF();
+      const imgData = canvas.toDataURL("image/jpeg", 1.0);
 
-// Make PDF
-async function makePDF() {
-  if (imageFiles.length === 0) {
-    document.getElementById('result').innerHTML = "<span class='error'>⚠ กรุณาเลือกรูปก่อนค่ะ</span>";
-    document.getElementById('shareMenu').style.display = 'none';
-    return;
-  }
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
-  const pdf = new jsPDF();
-  for (let i=0; i<imageFiles.length; i++){
-    const croppedData = await autoCrop(imageFiles[i]);
-    const img = new Image();
-    img.src = croppedData;
-    await new Promise(res => img.onload = res);
+      // ปรับขนาดรูปให้พอดีกับหน้า PDF
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pageWidth;
+      const pdfHeight = (imgProps.height * pageWidth) / imgProps.width;
 
-    let width = pdf.internal.pageSize.getWidth();
-    let height = (img.height * width) / img.width;
-    if(i>0) pdf.addPage();
-    pdf.addImage(img, "JPEG", 0, 0, width, height);
-  }
-
-  const pdfBlob = pdf.output("blob");
-  const driveUrl = await uploadPDFToDrive(pdfBlob);
-
-  document.getElementById('result').innerHTML =
-    `<a href="${driveUrl}" target="_blank" class='success'>📥 ดาวน์โหลด PDF</a>`;
-  const shareMenu = document.getElementById('shareMenu');
-  shareMenu.style.display = 'flex';
-  document.getElementById('shareFb').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(driveUrl)}`;
-  document.getElementById('shareTw').href = `https://twitter.com/intent/tweet?url=${encodeURIComponent(driveUrl)}&text=${encodeURIComponent('แปลงรูปเป็น PDF!')}`;
-  document.getElementById('shareLine').href = `https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(driveUrl)}`;
-}
-</script>
+      pdf.addImage(imgData, 'JPEG', 0, 10, pdfWidth, pdfHeight);
+      pdf.save("scanned.pdf");
+    });
+  </script>
 </body>
 </html>
