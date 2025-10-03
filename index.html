@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Image to PDF</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<!-- โหลด OpenCV.js -->
 <script async src="https://docs.opencv.org/4.9.0/opencv.js"></script>
 <style>
   body {
@@ -20,7 +19,6 @@
     box-sizing: border-box;
     position: relative;
   }
-
   .logo-container { text-align: center; margin-bottom: 20px; }
   .logo-container img { width: 100px; height: auto; margin-bottom: 10px; }
   .logo-container h3 { color:#06C755; font-weight:700; margin:0; font-size:1.5rem; }
@@ -103,7 +101,7 @@
   <a href="#" target="_blank" class="share-line" id="shareLine" title="Line">L</a>
 </div>
 
-<!-- Canvas ซ่อนใช้ OpenCV -->
+<!-- hidden canvas สำหรับ opencv -->
 <canvas id="hiddenCanvas" style="display:none;"></canvas>
 
 <script>
@@ -123,7 +121,7 @@ document.getElementById('cameraScan').addEventListener('change', e => {
   imageFiles = Array.from(e.target.files);
 });
 
-// ฟังก์ชัน Auto Crop ด้วย OpenCV.js
+// Auto crop ด้วย OpenCV.js
 async function autoCrop(file) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -160,7 +158,6 @@ async function autoCrop(file) {
           for (let i = 0; i < 4; i++) {
             pts.push({x: approx.intAt(i, 0), y: approx.intAt(i, 1)});
           }
-
           pts.sort((a, b) => a.y - b.y);
           let top = pts.slice(0, 2).sort((a, b) => a.x - b.x);
           let bottom = pts.slice(2, 4).sort((a, b) => a.x - b.x);
@@ -186,13 +183,14 @@ async function autoCrop(file) {
         }
         approx.delete();
       }
+
       src.delete(); gray.delete(); edges.delete(); contours.delete(); hierarchy.delete();
     };
     img.src = URL.createObjectURL(file);
   });
 }
 
-// แปลง PDF + อัปโหลด Google Drive
+// Upload PDF to Google Drive
 async function uploadPDFToDrive(pdfBlob) {
   const reader = new FileReader();
   return new Promise((resolve, reject) => {
@@ -211,6 +209,7 @@ async function uploadPDFToDrive(pdfBlob) {
   });
 }
 
+// Make PDF
 async function makePDF() {
   if (imageFiles.length === 0) {
     document.getElementById('result').innerHTML = "<span class='error'>⚠ กรุณาเลือกรูปก่อนค่ะ</span>";
@@ -220,7 +219,7 @@ async function makePDF() {
 
   const pdf = new jsPDF();
   for (let i=0; i<imageFiles.length; i++){
-    const croppedData = await autoCrop(imageFiles[i]); // ✅ ครอปก่อน
+    const croppedData = await autoCrop(imageFiles[i]);
     const img = new Image();
     img.src = croppedData;
     await new Promise(res => img.onload = res);
@@ -236,7 +235,6 @@ async function makePDF() {
 
   document.getElementById('result').innerHTML =
     `<a href="${driveUrl}" target="_blank" class='success'>📥 ดาวน์โหลด PDF</a>`;
-
   const shareMenu = document.getElementById('shareMenu');
   shareMenu.style.display = 'flex';
   document.getElementById('shareFb').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(driveUrl)}`;
