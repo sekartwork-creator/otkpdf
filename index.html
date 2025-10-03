@@ -3,26 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scanner + PDF</title>
-<!-- OpenCV -->
+<title>Smart Scanner + PDF</title>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-<!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-  body { font-family: 'Sarabun', sans-serif; text-align:center; background:#f5f5f5; padding:20px; }
-  canvas { border:1px solid #555; margin-top:10px; max-width:100%; border-radius:8px; }
-  input, button { margin:10px; padding:10px 20px; font-size:16px; border-radius:6px; }
-  button { background:#007bff; color:#fff; border:none; cursor:pointer; }
-  button:hover { background:#0056b3; }
+body { font-family: 'Sarabun', sans-serif; text-align:center; background:#f5f5f5; padding:20px; }
+canvas { border:1px solid #555; margin-top:10px; max-width:100%; border-radius:8px; }
+input, button { margin:10px; padding:10px 20px; font-size:16px; border-radius:6px; }
+button { background:#007bff; color:#fff; border:none; cursor:pointer; }
+button:hover { background:#0056b3; }
 </style>
 </head>
 <body>
-<h2>📸 Scanner + PDF</h2>
+<h2>📄 Smart Scanner + PDF</h2>
 
-<p>ถ่ายรูป (ครอปอัตโนมัติ)</p>
+<p>ถ่ายรูปจากกล้อง (ครอปอัจฉริยะ)</p>
 <input type="file" accept="image/*" capture="environment" id="cameraInput">
 
-<p>หรืออัปโหลดรูปจากเครื่อง (ไม่ครอป)</p>
+<p>อัปโหลดรูปจากเครื่อง (ไม่ครอป)</p>
 <input type="file" accept="image/*" id="uploadInput">
 
 <br>
@@ -37,56 +35,91 @@ let currentImage = null;
 
 // โหลด OpenCV เสร็จ
 let cvReady = false;
-cv['onRuntimeInitialized']=()=>{ cvReady=true; console.log("OpenCV.js ready"); };
+cv['onRuntimeInitialized'] = ()=>{ cvReady = true; console.log("OpenCV.js ready"); };
 
-// ฟังก์ชันครอปอัตโนมัติ
-function cropWithOpenCV(image) {
-  if(!cvReady) {
-    console.error("OpenCV.js ยังไม่พร้อม");
-    return;
-  }
-
-  canvas.width = image.width;
-  canvas.height = image.height;
-  ctx.drawImage(image, 0, 0);
+// ฟังก์ชัน Perspective Transform
+function warpDocument(srcImg){
+  if(!cvReady) return;
+  canvas.width = srcImg.width;
+  canvas.height = srcImg.height;
+  ctx.drawImage(srcImg,0,0);
 
   let src = cv.imread(canvas);
   let gray = new cv.Mat();
-  let edges = new cv.Mat();
-
   cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-  cv.GaussianBlur(gray, gray, new cv.Size(5,5),0,0,cv.BORDER_DEFAULT);
+  cv.GaussianBlur(gray, gray, new cv.Size(5,5),0);
+  let edges = new cv.Mat();
   cv.Canny(gray, edges, 50,150);
 
   let contours = new cv.MatVector();
   let hierarchy = new cv.Mat();
   cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
+  // หา contour ใหญ่สุด
   let biggest = null;
   let maxArea = 0;
   for(let i=0;i<contours.size();i++){
     let cnt = contours.get(i);
     let area = cv.contourArea(cnt);
-    if(area>maxArea){ maxArea=area; biggest=cnt; }
+    if(area>maxArea){
+      maxArea = area;
+      biggest = cnt;
+    }
   }
 
   if(biggest){
-    let rect = cv.boundingRect(biggest);
-    let crop = src.roi(rect);
-    cv.imshow(canvas, crop);
-    crop.delete();
+    let peri = cv.arcLength(biggest,true);
+    let approx = new cv.Mat();
+    cv.approxPolyDP(biggest, approx, 0.02*peri, true);
+
+    if(approx.rows===4){
+      // เรียงมุม top-left, top-right, bottom-right, bottom-left
+      let points = [];
+      for(let i=0;i<4;i++){
+        points.push({x:approx.intPtr(i,0)[0], y:approx.intPtr(i,0)[1]});
+      }
+      points.sort((a,b)=>a.y-b.y);
+      let top = points.slice(0,2).sort((a,b)=>a.x-b.x);
+      let bottom = points.slice(2,4).sort((a,b)=>a.x-b.x);
+      let ordered = [top[0], top[1], bottom[1], bottom[0]];
+
+      let widthTop = Math.hypot(ordered[1].x-ordered[0].x, ordered[1].y-ordered[0].y);
+      let widthBottom = Math.hypot(ordered[2].x-ordered[3].x, ordered[2].y-ordered[3].y);
+      let maxWidth = Math.max(widthTop, widthBottom);
+
+      let heightLeft = Math.hypot(ordered[3].x-ordered[0].x, ordered[3].y-ordered[0].y);
+      let heightRight = Math.hypot(ordered[2].x-ordered[1].x, ordered[2].y-ordered[1].y);
+      let maxHeight = Math.max(heightLeft, heightRight);
+
+      let dstPts = cv.matFromArray(4,1,cv.CV_32FC2, [0,0,maxWidth-1,0,maxWidth-1,maxHeight-1,0,maxHeight-1]);
+      let srcPts = cv.matFromArray(4,1,cv.CV_32FC2, [
+        ordered[0].x, ordered[0].y,
+        ordered[1].x, ordered[1].y,
+        ordered[2].x, ordered[2].y,
+        ordered[3].x, ordered[3].y
+      ]);
+
+      let M = cv.getPerspectiveTransform(srcPts, dstPts);
+      let dst = new cv.Mat();
+      let dsize = new cv.Size(maxWidth, maxHeight);
+      cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+
+      cv.imshow(canvas, dst);
+      dst.delete(); M.delete(); srcPts.delete(); dstPts.delete();
+    }
+    approx.delete();
   }
 
   src.delete(); gray.delete(); edges.delete(); contours.delete(); hierarchy.delete();
 }
 
-// ฟังก์ชันแสดงรูปปกติ
+// แสดงรูปปกติ
 function displayImage(file){
   const img = new Image();
   img.onload = ()=>{
     canvas.width = img.width;
     canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
+    ctx.drawImage(img,0,0);
   }
   img.src = URL.createObjectURL(file);
 }
@@ -95,7 +128,7 @@ function displayImage(file){
 document.getElementById('cameraInput').addEventListener('change', e=>{
   if(e.target.files.length>0){
     const img = new Image();
-    img.onload = ()=>{ cropWithOpenCV(img); currentImage=img; }
+    img.onload = ()=>{ warpDocument(img); currentImage=img; }
     img.src = URL.createObjectURL(e.target.files[0]);
   }
 });
@@ -109,20 +142,15 @@ document.getElementById('uploadInput').addEventListener('change', e=>{
   }
 });
 
-// บันทึกเป็น PDF
+// PDF
 document.getElementById('savePDF').addEventListener('click', ()=>{
-  if(!currentImage){
-    alert("ยังไม่มีรูปให้บันทึก!");
-    return;
-  }
+  if(!currentImage){ alert("ยังไม่มีรูปให้บันทึก!"); return; }
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
-
   const imgData = canvas.toDataURL("image/jpeg",1.0);
   const pageWidth = pdf.internal.pageSize.getWidth();
   const imgProps = pdf.getImageProperties(imgData);
-  const pdfHeight = (imgProps.height * pageWidth) / imgProps.width;
-
+  const pdfHeight = (imgProps.height*pageWidth)/imgProps.width;
   pdf.addImage(imgData,'JPEG',0,10,pageWidth,pdfHeight);
   pdf.save("scanned.pdf");
 });
