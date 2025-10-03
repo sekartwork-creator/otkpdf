@@ -1,143 +1,131 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>Auto Crop Camera + Save PDF</title>
-  <!-- OpenCV -->
-  <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
-  <!-- jsPDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <style>
-    body { 
-      font-family: 'Sarabun', sans-serif; 
-      text-align: center; 
-      background: #f9f9f9; 
-      padding: 20px;
-    }
-    canvas { 
-      margin-top: 15px; 
-      border: 2px solid #555; 
-      max-width: 100%; 
-      border-radius: 10px;
-    }
-    input, button {
-      margin: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: 1px solid #aaa;
-    }
-    button {
-      background: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scanner + PDF</title>
+<!-- OpenCV -->
+<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  body { font-family: 'Sarabun', sans-serif; text-align:center; background:#f5f5f5; padding:20px; }
+  canvas { border:1px solid #555; margin-top:10px; max-width:100%; border-radius:8px; }
+  input, button { margin:10px; padding:10px 20px; font-size:16px; border-radius:6px; }
+  button { background:#007bff; color:#fff; border:none; cursor:pointer; }
+  button:hover { background:#0056b3; }
+</style>
 </head>
 <body>
-  <h2>📸 ถ่ายรูปแล้วครอปอัตโนมัติ + บันทึก PDF</h2>
-  
-  <!-- กล้อง -->
-  <input type="file" accept="image/*" capture="environment" id="cameraInput">
-  <p>หรือ</p>
-  <!-- อัปโหลด -->
-  <input type="file" accept="image/*" id="uploadInput">
-  
-  <br><br>
-  <canvas id="canvas"></canvas>
-  <br>
-  <button id="savePDF">บันทึกเป็น PDF</button>
+<h2>📸 Scanner + PDF</h2>
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+<p>ถ่ายรูป (ครอปอัตโนมัติ)</p>
+<input type="file" accept="image/*" capture="environment" id="cameraInput">
 
-    function processImage(file, doCrop) {
-      const img = new Image();
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
+<p>หรืออัปโหลดรูปจากเครื่อง (ไม่ครอป)</p>
+<input type="file" accept="image/*" id="uploadInput">
 
-        if (!doCrop) return; // ❌ ถ้าไม่ครอปก็หยุดแค่นี้
+<br>
+<canvas id="canvas"></canvas>
+<br>
+<button id="savePDF">บันทึกเป็น PDF</button>
 
-        cv['onRuntimeInitialized'] = () => {
-          let src = cv.imread(canvas);
-          let gray = new cv.Mat();
-          let edges = new cv.Mat();
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let currentImage = null;
 
-          // แปลงเป็นขาวดำ + เบลอ + หาเส้นขอบ
-          cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-          cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-          cv.Canny(gray, edges, 50, 150);
+// โหลด OpenCV เสร็จ
+let cvReady = false;
+cv['onRuntimeInitialized']=()=>{ cvReady=true; console.log("OpenCV.js ready"); };
 
-          // หา Contours
-          let contours = new cv.MatVector();
-          let hierarchy = new cv.Mat();
-          cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+// ฟังก์ชันครอปอัตโนมัติ
+function cropWithOpenCV(image) {
+  if(!cvReady) {
+    console.error("OpenCV.js ยังไม่พร้อม");
+    return;
+  }
 
-          // หา contour ใหญ่สุด
-          let biggest = null;
-          let maxArea = 0;
-          for (let i = 0; i < contours.size(); i++) {
-            let cnt = contours.get(i);
-            let area = cv.contourArea(cnt);
-            if (area > maxArea) {
-              maxArea = area;
-              biggest = cnt;
-            }
-          }
+  canvas.width = image.width;
+  canvas.height = image.height;
+  ctx.drawImage(image, 0, 0);
 
-          if (biggest) {
-            let rect = cv.boundingRect(biggest);
-            let crop = src.roi(rect);
-            cv.imshow(canvas, crop);
-            crop.delete();
-          }
+  let src = cv.imread(canvas);
+  let gray = new cv.Mat();
+  let edges = new cv.Mat();
 
-          // cleanup
-          src.delete(); gray.delete(); edges.delete();
-          contours.delete(); hierarchy.delete();
-        };
-      };
-      img.src = URL.createObjectURL(file);
-    }
+  cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+  cv.GaussianBlur(gray, gray, new cv.Size(5,5),0,0,cv.BORDER_DEFAULT);
+  cv.Canny(gray, edges, 50,150);
 
-    // กล้อง → ครอป
-    document.getElementById('cameraInput').addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        processImage(e.target.files[0], true); // ✅ ครอป
-      }
-    });
+  let contours = new cv.MatVector();
+  let hierarchy = new cv.Mat();
+  cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-    // อัปโหลด → ไม่ครอป
-    document.getElementById('uploadInput').addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
-        processImage(e.target.files[0], false); // ❌ ไม่ครอป
-      }
-    });
+  let biggest = null;
+  let maxArea = 0;
+  for(let i=0;i<contours.size();i++){
+    let cnt = contours.get(i);
+    let area = cv.contourArea(cnt);
+    if(area>maxArea){ maxArea=area; biggest=cnt; }
+  }
 
-    // บันทึก PDF
-    document.getElementById('savePDF').addEventListener('click', () => {
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF();
-      const imgData = canvas.toDataURL("image/jpeg", 1.0);
+  if(biggest){
+    let rect = cv.boundingRect(biggest);
+    let crop = src.roi(rect);
+    cv.imshow(canvas, crop);
+    crop.delete();
+  }
 
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
+  src.delete(); gray.delete(); edges.delete(); contours.delete(); hierarchy.delete();
+}
 
-      // ปรับขนาดรูปให้พอดีกับหน้า PDF
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pageWidth;
-      const pdfHeight = (imgProps.height * pageWidth) / imgProps.width;
+// ฟังก์ชันแสดงรูปปกติ
+function displayImage(file){
+  const img = new Image();
+  img.onload = ()=>{
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+  }
+  img.src = URL.createObjectURL(file);
+}
 
-      pdf.addImage(imgData, 'JPEG', 0, 10, pdfWidth, pdfHeight);
-      pdf.save("scanned.pdf");
-    });
-  </script>
+// กล้อง → ครอป
+document.getElementById('cameraInput').addEventListener('change', e=>{
+  if(e.target.files.length>0){
+    const img = new Image();
+    img.onload = ()=>{ cropWithOpenCV(img); currentImage=img; }
+    img.src = URL.createObjectURL(e.target.files[0]);
+  }
+});
+
+// อัปโหลด → ไม่ครอป
+document.getElementById('uploadInput').addEventListener('change', e=>{
+  if(e.target.files.length>0){
+    displayImage(e.target.files[0]);
+    currentImage = new Image();
+    currentImage.src = URL.createObjectURL(e.target.files[0]);
+  }
+});
+
+// บันทึกเป็น PDF
+document.getElementById('savePDF').addEventListener('click', ()=>{
+  if(!currentImage){
+    alert("ยังไม่มีรูปให้บันทึก!");
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+
+  const imgData = canvas.toDataURL("image/jpeg",1.0);
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const imgProps = pdf.getImageProperties(imgData);
+  const pdfHeight = (imgProps.height * pageWidth) / imgProps.width;
+
+  pdf.addImage(imgData,'JPEG',0,10,pageWidth,pdfHeight);
+  pdf.save("scanned.pdf");
+});
+</script>
 </body>
 </html>
