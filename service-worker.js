@@ -1,29 +1,20 @@
 const CACHE_NAME = 'img2pdf-cache-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/service-worker.js',
+  './index.html',
+  './manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 ];
 
-// Install SW
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
   );
 });
 
-// Activate SW
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-    ))
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => response || fetch(event.request))
   );
 });
-
-// Fetch
-self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(response => response || fetch(e
