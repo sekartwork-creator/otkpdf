@@ -3,52 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>vFlat Lite Web Scanner</title>
+<title>vFlat Advance Lite</title>
 
 <!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <!-- OpenCV.js -->
 <script async src="https://docs.opencv.org/4.x/opencv.js" type="text/javascript"></script>
+<!-- Tesseract.js สำหรับ OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
 
 <style>
-body {
-  font-family: 'Sarabun', sans-serif;
-  background: #f5f5f5;
-  text-align: center;
-  padding: 20px;
-}
-h2 { color: #06C755; margin-bottom: 10px; }
-input[type=file] {
-  padding: 12px; border-radius: 8px; margin-bottom: 10px;
-  border: 1px solid #ccc; cursor: pointer;
-}
-button {
-  padding: 12px 20px; background:#06C755; color:#fff;
-  border:none; border-radius:8px; cursor:pointer; margin:5px;
-}
-button:hover { background:#049645; }
+body { font-family: 'Sarabun', sans-serif; background:#f5f5f5; text-align:center; padding:20px; }
+h2 { color:#06C755; margin-bottom:5px; }
+input[type=file] { padding:10px 15px; margin-bottom:10px; border-radius:8px; cursor:pointer; border:1px solid #ccc; }
+button { padding:10px 15px; margin:5px; border:none; border-radius:8px; background:#06C755; color:#fff; cursor:pointer; }
+button:hover{ background:#049645; }
 canvas { border:1px solid #ccc; border-radius:8px; margin-top:10px; max-width:100%; }
-.page-preview { margin-top:15px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
-.page-preview canvas { border:1px solid #aaa; }
+.page-preview{ margin-top:15px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+.page-preview canvas{ border:1px solid #aaa; max-width:150px; max-height:200px; }
 </style>
 </head>
 <body>
 
-<h2>📄 vFlat Lite Web Scanner</h2>
-<p>ถ่ายเอกสาร → ครอปอัจฉริยะ → ปรับสี → Preview + Export PDF/JPG</p>
+<h2>📄 vFlat Advance Lite</h2>
+<p>ถ่ายหลายหน้า → ครอปอัจฉริยะ → ปรับสี → Preview + Export PDF/JPG + OCR</p>
 
 <input type="file" accept="image/*" capture="environment" multiple id="cameraInput">
 <br>
 <button onclick="exportPDF()">Export PDF</button>
+<button onclick="exportJPG()">Export JPG</button>
 <button onclick="clearPages()">ล้างทั้งหมด</button>
+<button onclick="performOCR()">OCR (Text)</button>
 
 <div class="page-preview" id="pagePreview"></div>
+<div id="ocrResult" style="margin-top:15px; text-align:left; max-width:600px;"></div>
 
 <script>
-let pages = []; // เก็บแต่ละหน้าเป็น canvas
+let pages = [];
 const previewContainer = document.getElementById('pagePreview');
+const ocrContainer = document.getElementById('ocrResult');
 
-document.getElementById('cameraInput').addEventListener('change', async e => {
+document.getElementById('cameraInput').addEventListener('change', async e=>{
   const files = Array.from(e.target.files);
   for(let file of files){
     const img = await loadImage(file);
@@ -58,7 +53,6 @@ document.getElementById('cameraInput').addEventListener('change', async e => {
   }
 });
 
-// โหลดรูปเป็น Image
 function loadImage(file){
   return new Promise(resolve=>{
     const img = new Image();
@@ -67,7 +61,7 @@ function loadImage(file){
   });
 }
 
-// Crop + Perspective + Enhancement
+// Smart Crop + Perspective + Enhancement
 async function processDocument(img){
   return new Promise(resolve=>{
     const canvas = document.createElement('canvas');
@@ -76,38 +70,31 @@ async function processDocument(img){
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img,0,0,img.width,img.height);
 
-    // รอให้ OpenCV โหลด
     cv['onRuntimeInitialized']=()=>{
       let src = cv.imread(canvas);
-      let dst = new cv.Mat();
-      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
-      cv.GaussianBlur(dst, dst, new cv.Size(5,5),0,0,cv.BORDER_DEFAULT);
-      cv.Canny(dst, dst, 50, 150);
+      let gray = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY,0);
+      cv.GaussianBlur(gray, gray, new cv.Size(5,5),0);
+      cv.Canny(gray, gray, 50,150);
+
       let contours = new cv.MatVector();
       let hierarchy = new cv.Mat();
-      cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+      cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-      // หา contour ที่ใหญ่ที่สุด
       let maxArea = 0;
       let maxCnt = null;
       for(let i=0;i<contours.size();i++){
         let cnt = contours.get(i);
-        let area = cv.contourArea(cnt, false);
-        if(area>maxArea){
-          maxArea = area;
-          maxCnt = cnt;
-        }
+        let area = cv.contourArea(cnt,false);
+        if(area>maxArea){ maxArea = area; maxCnt = cnt;}
       }
 
       if(maxCnt){
         let approx = new cv.Mat();
         cv.approxPolyDP(maxCnt, approx, 0.02*cv.arcLength(maxCnt,true), true);
         if(approx.rows===4){
-          // Warp perspective
           let pts = [];
-          for(let i=0;i<4;i++){
-            pts.push({x: approx.intPtr(i,0)[0], y: approx.intPtr(i,0)[1]});
-          }
+          for(let i=0;i<4;i++){ pts.push({x: approx.intPtr(i,0)[0], y: approx.intPtr(i,0)[1]}); }
           pts = sortPoints(pts);
           let width = Math.max(distance(pts[0], pts[1]), distance(pts[2], pts[3]));
           let height = Math.max(distance(pts[0], pts[3]), distance(pts[1], pts[2]));
@@ -116,53 +103,72 @@ async function processDocument(img){
           let M = cv.getPerspectiveTransform(srcTri,dstTri);
           let warped = new cv.Mat();
           cv.warpPerspective(src, warped, M, new cv.Size(width,height));
+
           // Enhancement
           cv.cvtColor(warped, warped, cv.COLOR_RGBA2RGB);
-          cv.cvtColor(warped, warped, cv.COLOR_RGB2GRAY);
-          cv.equalizeHist(warped, warped);
-          cv.imshow(canvas, warped);
-          warped.delete(); M.delete(); srcTri.delete(); dstTri.delete();
+          let enhanced = new cv.Mat();
+          cv.cvtColor(warped, enhanced, cv.COLOR_RGB2GRAY);
+          cv.equalizeHist(enhanced, enhanced);
+
+          cv.imshow(canvas, enhanced);
+
+          warped.delete(); enhanced.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         }
         approx.delete();
       }
 
-      src.delete(); dst.delete(); contours.delete(); hierarchy.delete();
+      src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
       resolve(canvas);
     }
   });
 }
 
-// เรียงจุด 4 มุม
 function sortPoints(pts){
   pts.sort((a,b)=>a.x+a.y - (b.x+b.y));
   let tl = pts[0], br=pts[3];
   let remaining = [pts[1], pts[2]];
   remaining.sort((a,b)=>a.y - b.y);
-  let tr = remaining[0], bl=remaining[1];
+  let tr = remaining[0], bl = remaining[1];
   return [tl,tr,br,bl];
 }
 
-// คำนวณระยะทาง
-function distance(p1,p2){ return Math.sqrt((p1.x-p2.x)**2+(p1.y-p2.y)**2); }
+function distance(p1,p2){ return Math.hypot(p1.x-p2.x,p1.y-p2.y); }
 
-// Export PDF
-async function exportPDF(){
-  if(pages.length===0) return alert("ยังไม่มีหน้าให้ export!");
+function exportPDF(){
+  if(pages.length===0) return alert("ยังไม่มีหน้า!");
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF();
-  for(let i=0;i<pages.length;i++){
-    const canvas = pages[i];
+  pages.forEach((canvas,i)=>{
     const imgData = canvas.toDataURL('image/jpeg',1.0);
     if(i>0) pdf.addPage();
     pdf.addImage(imgData,'JPEG',0,0,pdf.internal.pageSize.getWidth(),pdf.internal.pageSize.getHeight());
-  }
+  });
   pdf.save("scanned.pdf");
 }
 
-// ล้างทั้งหมด
+function exportJPG(){
+  if(pages.length===0) return alert("ยังไม่มีหน้า!");
+  pages.forEach((canvas,i)=>{
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL('image/jpeg',1.0);
+    link.download = `page_${i+1}.jpg`;
+    link.click();
+  });
+}
+
 function clearPages(){
-  pages=[];
-  previewContainer.innerHTML='';
+  pages=[]; previewContainer.innerHTML=''; ocrContainer.innerHTML='';
+}
+
+async function performOCR(){
+  if(pages.length===0) return alert("ยังไม่มีหน้า!");
+  ocrContainer.innerHTML='⏳ กำลังประมวลผล OCR ...';
+  let fullText='';
+  for(let i=0;i<pages.length;i++){
+    const { data } = await Tesseract.recognize(pages[i].toDataURL(), 'eng+tha');
+    fullText += `--- หน้า ${i+1} ---\n${data.text}\n`;
+  }
+  ocrContainer.innerHTML = `<pre>${fullText}</pre>`;
 }
 </script>
 </body>
