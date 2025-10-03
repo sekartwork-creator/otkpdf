@@ -173,7 +173,7 @@ async function makePDF() {
   const driveUrl = await uploadPDFToDrive(pdfBlob);
 
   document.getElementById('result').innerHTML =
-    `<a href="${driveUrl}" target="_blank" class='success'>📥 ดาวน์โหลด PDF</a>`;
+    `<a href="${driveUrl}" target="_blank" class='success'>↓ ดาวน์โหลด PDF</a>`;
 
   const shareMenu = document.getElementById('shareMenu');
   shareMenu.style.display = 'flex';
