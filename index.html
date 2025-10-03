@@ -10,7 +10,7 @@
     margin: 0;
     padding: 15px;
     font-family: 'Kanit', sans-serif;
-    background: linear-gradient(135deg, #f0fff0, #e6f7ff);
+    background: linear-gradient(135deg, #ffe5e5, #ffecec);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -21,29 +21,31 @@
 
   .logo-container { text-align: center; margin-bottom: 15px; }
   .logo-container img { width: 80px; height: auto; margin-bottom: 5px; }
-  .logo-container h3 { color:#06C755; font-weight:700; margin:0; font-size:1.3rem; }
-  h1 { color:#06C755; font-weight:700; margin-bottom:15px; text-align:center; font-size:1.2rem; }
+  .logo-container h3 { color:#e4252a; font-weight:700; margin:0; font-size:1.3rem; }
+  h1 { color:#e4252a; font-weight:700; margin-bottom:15px; text-align:center; font-size:1.2rem; }
 
   input[type=file] {
-    width: 100%; max-width:350px; padding:12px; margin-bottom:12px;
-    border:1.5px solid #ccc; border-radius:10px; font-size:0.95rem; background:#fff;
+    width: 100%; max-width:350px; padding:15px; margin-bottom:12px;
+    border:2px dashed #e4252a; border-radius:12px;
+    font-size:0.95rem; background:#fff; text-align:center;
     outline:none; cursor:pointer; transition:.3s;
   }
-  input[type=file]:focus { border-color:#06C755; box-shadow:0 0 6px rgba(6,199,85,.3); }
+  input[type=file]:hover { background:#ffe5e5; }
+  input[type=file]:focus { border-color:#b31920; box-shadow:0 0 6px rgba(228,37,42,0.3); }
 
   .btn {
-    width:100%; max-width:350px; padding:12px; border:none; border-radius:10px;
-    background-color:#06C755; color:#fff; font-size:1rem; font-weight:700;
+    width:100%; max-width:350px; padding:12px; border:none; border-radius:12px;
+    background-color:#e4252a; color:#fff; font-size:1rem; font-weight:700;
     cursor:pointer; margin-top:8px; text-align:center; transition:.3s;
   }
-  .btn:hover { background-color:#049645; transform:translateY(-1px); }
+  .btn:hover { background-color:#b31920; transform:translateY(-1px); }
 
   #result { text-align:center; font-size:1rem; font-weight:700; margin-top:12px; }
-  .success { color: green; }
+  .success { color: #e4252a; }
   .error { color: red; }
 
   footer { margin-top:20px; font-size:0.8rem; color:#666; text-align:center; }
-  footer a { color:#3768fa; text-decoration:none; margin:0 3px; }
+  footer a { color:#e4252a; text-decoration:none; margin:0 3px; }
   footer a:hover { text-decoration:underline; }
 
   /* Floating Camera Button */
@@ -54,7 +56,7 @@
     width:50px;
     height:50px;
     border-radius:50%;
-    background-color:#06C755;
+    background-color:#e4252a;
     background-image: url('https://cdn-icons-png.flaticon.com/512/337/337946.png');
     background-size: 60%;
     background-repeat: no-repeat;
@@ -64,7 +66,7 @@
     transition:.3s;
     z-index:1000;
   }
-  .floating-btn:hover { background-color:#049645; transform:translateY(-2px); }
+  .floating-btn:hover { background-color:#b31920; transform:translateY(-2px); }
 
   /* Share submenu */
   .share-submenu {
@@ -170,11 +172,9 @@ async function makePDF() {
   const pdfBlob = pdf.output("blob");
   const driveUrl = await uploadPDFToDrive(pdfBlob);
 
-  // แสดงลิงก์ดาวน์โหลด
   document.getElementById('result').innerHTML =
     `<a href="${driveUrl}" target="_blank" class='success'>📥 ดาวน์โหลด PDF</a>`;
 
-  // แสดงเมนูแชร์
   const shareMenu = document.getElementById('shareMenu');
   shareMenu.style.display = 'flex';
   document.getElementById('shareFb').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(driveUrl)}`;
