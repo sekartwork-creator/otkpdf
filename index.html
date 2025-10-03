@@ -3,58 +3,167 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Document Scanner</title>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.8.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+<title>vFlat Lite Web Scanner</title>
+
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<!-- OpenCV.js -->
+<script async src="https://docs.opencv.org/4.x/opencv.js" type="text/javascript"></script>
+
 <style>
-  body { font-family:'Sarabun',sans-serif; text-align:center; padding:20px; background:#f5f5f5; }
-  canvas { border:1px solid #ccc; margin-top:10px; max-width:100%; border-radius:8px; }
-  input, button { padding:10px 20px; margin:10px; border-radius:6px; font-size:16px; }
+body {
+  font-family: 'Sarabun', sans-serif;
+  background: #f5f5f5;
+  text-align: center;
+  padding: 20px;
+}
+h2 { color: #06C755; margin-bottom: 10px; }
+input[type=file] {
+  padding: 12px; border-radius: 8px; margin-bottom: 10px;
+  border: 1px solid #ccc; cursor: pointer;
+}
+button {
+  padding: 12px 20px; background:#06C755; color:#fff;
+  border:none; border-radius:8px; cursor:pointer; margin:5px;
+}
+button:hover { background:#049645; }
+canvas { border:1px solid #ccc; border-radius:8px; margin-top:10px; max-width:100%; }
+.page-preview { margin-top:15px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+.page-preview canvas { border:1px solid #aaa; }
 </style>
 </head>
 <body>
-<h2>📄 AI Document Scanner (Free)</h2>
-<p>ถ่ายเอกสาร → ครอปอัจฉริยะ → พรีวิว</p>
 
-<input type="file" accept="image/*" capture="environment" id="cameraInput">
-<canvas id="canvas"></canvas>
+<h2>📄 vFlat Lite Web Scanner</h2>
+<p>ถ่ายเอกสาร → ครอปอัจฉริยะ → ปรับสี → Preview + Export PDF/JPG</p>
+
+<input type="file" accept="image/*" capture="environment" multiple id="cameraInput">
+<br>
+<button onclick="exportPDF()">Export PDF</button>
+<button onclick="clearPages()">ล้างทั้งหมด</button>
+
+<div class="page-preview" id="pagePreview"></div>
 
 <script>
-let model;
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-
-// โหลดโมเดล COCO-SSD
-cocoSsd.load().then(m => {
-  model = m;
-  console.log("AI model loaded");
-});
+let pages = []; // เก็บแต่ละหน้าเป็น canvas
+const previewContainer = document.getElementById('pagePreview');
 
 document.getElementById('cameraInput').addEventListener('change', async e => {
-  if(e.target.files.length===0) return;
-  const file = e.target.files[0];
-  const img = new Image();
-  img.src = URL.createObjectURL(file);
-  img.onload = async () => {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
-
-    // ใช้ AI detect object "book" หรือ "document" (approach แบบ demo)
-    if(model){
-      const predictions = await model.detect(img);
-      let doc = predictions.find(p => p.class==="book" || p.class==="document");
-      if(doc){
-        const {bbox} = doc; // [x, y, width, height]
-        const [x,y,w,h] = bbox;
-        const cropped = ctx.getImageData(x,y,w,h);
-        canvas.width = w;
-        canvas.height = h;
-        ctx.putImageData(cropped,0,0);
-      }
-    }
+  const files = Array.from(e.target.files);
+  for(let file of files){
+    const img = await loadImage(file);
+    const processedCanvas = await processDocument(img);
+    pages.push(processedCanvas);
+    previewContainer.appendChild(processedCanvas);
   }
 });
+
+// โหลดรูปเป็น Image
+function loadImage(file){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>resolve(img);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// Crop + Perspective + Enhancement
+async function processDocument(img){
+  return new Promise(resolve=>{
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img,0,0,img.width,img.height);
+
+    // รอให้ OpenCV โหลด
+    cv['onRuntimeInitialized']=()=>{
+      let src = cv.imread(canvas);
+      let dst = new cv.Mat();
+      cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY, 0);
+      cv.GaussianBlur(dst, dst, new cv.Size(5,5),0,0,cv.BORDER_DEFAULT);
+      cv.Canny(dst, dst, 50, 150);
+      let contours = new cv.MatVector();
+      let hierarchy = new cv.Mat();
+      cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+      // หา contour ที่ใหญ่ที่สุด
+      let maxArea = 0;
+      let maxCnt = null;
+      for(let i=0;i<contours.size();i++){
+        let cnt = contours.get(i);
+        let area = cv.contourArea(cnt, false);
+        if(area>maxArea){
+          maxArea = area;
+          maxCnt = cnt;
+        }
+      }
+
+      if(maxCnt){
+        let approx = new cv.Mat();
+        cv.approxPolyDP(maxCnt, approx, 0.02*cv.arcLength(maxCnt,true), true);
+        if(approx.rows===4){
+          // Warp perspective
+          let pts = [];
+          for(let i=0;i<4;i++){
+            pts.push({x: approx.intPtr(i,0)[0], y: approx.intPtr(i,0)[1]});
+          }
+          pts = sortPoints(pts);
+          let width = Math.max(distance(pts[0], pts[1]), distance(pts[2], pts[3]));
+          let height = Math.max(distance(pts[0], pts[3]), distance(pts[1], pts[2]));
+          let srcTri = cv.matFromArray(4,1,cv.CV_32FC2,[pts[0].x,pts[0].y, pts[1].x,pts[1].y, pts[2].x,pts[2].y, pts[3].x,pts[3].y]);
+          let dstTri = cv.matFromArray(4,1,cv.CV_32FC2,[0,0,width,0,width,height,0,height]);
+          let M = cv.getPerspectiveTransform(srcTri,dstTri);
+          let warped = new cv.Mat();
+          cv.warpPerspective(src, warped, M, new cv.Size(width,height));
+          // Enhancement
+          cv.cvtColor(warped, warped, cv.COLOR_RGBA2RGB);
+          cv.cvtColor(warped, warped, cv.COLOR_RGB2GRAY);
+          cv.equalizeHist(warped, warped);
+          cv.imshow(canvas, warped);
+          warped.delete(); M.delete(); srcTri.delete(); dstTri.delete();
+        }
+        approx.delete();
+      }
+
+      src.delete(); dst.delete(); contours.delete(); hierarchy.delete();
+      resolve(canvas);
+    }
+  });
+}
+
+// เรียงจุด 4 มุม
+function sortPoints(pts){
+  pts.sort((a,b)=>a.x+a.y - (b.x+b.y));
+  let tl = pts[0], br=pts[3];
+  let remaining = [pts[1], pts[2]];
+  remaining.sort((a,b)=>a.y - b.y);
+  let tr = remaining[0], bl=remaining[1];
+  return [tl,tr,br,bl];
+}
+
+// คำนวณระยะทาง
+function distance(p1,p2){ return Math.sqrt((p1.x-p2.x)**2+(p1.y-p2.y)**2); }
+
+// Export PDF
+async function exportPDF(){
+  if(pages.length===0) return alert("ยังไม่มีหน้าให้ export!");
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF();
+  for(let i=0;i<pages.length;i++){
+    const canvas = pages[i];
+    const imgData = canvas.toDataURL('image/jpeg',1.0);
+    if(i>0) pdf.addPage();
+    pdf.addImage(imgData,'JPEG',0,0,pdf.internal.pageSize.getWidth(),pdf.internal.pageSize.getHeight());
+  }
+  pdf.save("scanned.pdf");
+}
+
+// ล้างทั้งหมด
+function clearPages(){
+  pages=[];
+  previewContainer.innerHTML='';
+}
 </script>
 </body>
 </html>
