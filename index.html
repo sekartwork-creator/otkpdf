@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Scanner Demo</title>
+<title>Smart Scanner Preview + Crop</title>
 <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 <style>
 body { font-family: 'Sarabun', sans-serif; text-align:center; background:#f5f5f5; padding:20px; }
@@ -12,8 +12,8 @@ input { margin:10px; padding:10px 20px; font-size:16px; border-radius:6px; }
 </style>
 </head>
 <body>
-<h2>📄 Smart Scanner Demo</h2>
-<p>ถ่ายรูปจากกล้อง → ครอปฉลาด</p>
+<h2>📄 Smart Scanner Preview + Crop</h2>
+<p>ถ่ายรูปจากกล้อง → ตรวจจับขอบ → ครอปฉลาด</p>
 <input type="file" accept="image/*" capture="environment" id="cameraInput">
 <br>
 <canvas id="canvas"></canvas>
@@ -21,16 +21,15 @@ input { margin:10px; padding:10px 20px; font-size:16px; border-radius:6px; }
 <script>
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-
-// รอ OpenCV โหลด
 let cvReady = false;
+
 cv['onRuntimeInitialized'] = ()=>{
     cvReady = true;
     console.log("OpenCV.js ready");
 };
 
-// ฟังก์ชันครอปฉลาด
-function warpDocument(srcImg){
+// ฟังก์ชัน Detect + Draw Contour + Crop
+function processDocument(srcImg){
     if(!cvReady) return;
 
     canvas.width = srcImg.width;
@@ -41,6 +40,7 @@ function warpDocument(srcImg){
     let gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
     cv.GaussianBlur(gray, gray, new cv.Size(5,5),0);
+
     let edges = new cv.Mat();
     cv.Canny(gray, edges, 50,150);
 
@@ -75,6 +75,18 @@ function warpDocument(srcImg){
             let bottom = points.slice(2,4).sort((a,b)=>a.x-b.x);
             let ordered = [top[0], top[1], bottom[1], bottom[0]];
 
+            // วาดเส้นกรอบสีเขียวบน Canvas
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = 'lime';
+            ctx.beginPath();
+            ctx.moveTo(ordered[0].x, ordered[0].y);
+            for(let i=1;i<ordered.length;i++){
+                ctx.lineTo(ordered[i].x, ordered[i].y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+
+            // ครอปจริง
             let widthTop = Math.hypot(ordered[1].x-ordered[0].x, ordered[1].y-ordered[0].y);
             let widthBottom = Math.hypot(ordered[2].x-ordered[3].x, ordered[2].y-ordered[3].y);
             let maxWidth = Math.max(widthTop, widthBottom);
@@ -96,7 +108,7 @@ function warpDocument(srcImg){
             let dsize = new cv.Size(maxWidth, maxHeight);
             cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
 
-            cv.imshow(canvas, dst);
+            cv.imshow(canvas, dst); // แสดงผลหลังครอป
             dst.delete(); M.delete(); srcPts.delete(); dstPts.delete();
         }
         approx.delete();
@@ -109,7 +121,7 @@ function warpDocument(srcImg){
 document.getElementById('cameraInput').addEventListener('change', e=>{
     if(e.target.files.length>0){
         const img = new Image();
-        img.onload = ()=>{ warpDocument(img); }
+        img.onload = ()=>{ processDocument(img); }
         img.src = URL.createObjectURL(e.target.files[0]);
     }
 });
